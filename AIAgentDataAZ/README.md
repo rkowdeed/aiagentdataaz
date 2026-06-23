@@ -67,3 +67,16 @@ The repository seeds two files automatically:
 - No AWS dependencies are required.
 - The mock S3 bucket is just a local folder with file metadata.
 - SQLite is used as the target database.
+
+## Key Design:
+
+No framework dependencies — Just Python classes with methods
+Data flows as method returns — Each agent returns results (dictionaries/tuples) that feed into the next stage
+Polling loop — main.py:95-103 runs continuous polling (5-second intervals) to check for new/changed files
+State tracking — processed_state.json stores file hashes to skip unchanged files
+This is a linear pipeline, not a graph—perfect for simple ETL workflows. No need for LangGraph unless you need:
+
+Conditional branching/loops
+Parallel execution
+Complex state management
+Agent communication/routing
