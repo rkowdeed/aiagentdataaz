@@ -107,7 +107,7 @@ def show_file_content(bucket: MockS3Bucket) -> None:
         choice = int(input("Enter file number: ").strip())
         if 1 <= choice <= len(objects):
             selected = objects[choice - 1]
-            content = bucket.read_text(selected.key)
+            content = bucket.read_file(selected.key)
             print(f"\n--- Begin: {selected.key} ---")
             print(content)
             print(f"--- End: {selected.key} ---\n")
@@ -228,7 +228,7 @@ def main() -> None:
     try:
         while True:
             display_menu()
-            choice = input("Enter option (1-7): ").strip()
+            choice = input("Enter option (1-8): ").strip()
             
             if choice == "1":
                 process_bucket(bucket, db, state)
