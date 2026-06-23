@@ -75,6 +75,7 @@ class CleanserAgent:
 
         rows = []
         failed_rows = []
+        valid_source_rows = []
         row_count = 0
         for line_number, row in enumerate(reader, start=2):
             row_count += 1
@@ -139,11 +140,20 @@ class CleanserAgent:
                     json.dumps(metadata, separators=(",", ":"), sort_keys=True),
                 )
             )
+            if reader.fieldnames is not None:
+                valid_source_rows.append({field: row.get(field, "") for field in reader.fieldnames if field is not None})
 
         if row_count == 0:
             issues.append("No data rows found in file.")
 
-        return {"ok": len(issues) == 0, "issues": issues, "rows": rows, "failed_rows": failed_rows}
+        return {
+            "ok": len(issues) == 0,
+            "issues": issues,
+            "rows": rows,
+            "failed_rows": failed_rows,
+            "valid_source_rows": valid_source_rows,
+            "fieldnames": reader.fieldnames or self.required_headers,
+        }
 
     def _validate_metadata(self, metadata: dict[str, Any], line_number: int, schema: dict[str, str]) -> list[str]:
         issues: list[str] = []
@@ -209,6 +219,22 @@ class CleanserAgent:
         if prefix and not prefix.endswith("\n"):
             prefix += "\n"
         bucket.write_text(self.INVALID_CSV_KEY, prefix + append_buffer.getvalue())
+
+    def rewrite_source_with_valid_rows(
+        self,
+        bucket: MockS3Bucket,
+        obj: S3Object,
+        fieldnames: list[str],
+        valid_rows: list[dict[str, Any]],
+    ) -> None:
+        """Rewrite a source CSV to keep only valid rows after invalid rows are moved out."""
+        write_fields = [field for field in fieldnames if field]
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=write_fields, lineterminator="\n")
+        writer.writeheader()
+        for row in valid_rows:
+            writer.writerow({field: row.get(field, "") for field in write_fields})
+        bucket.write_text(obj.key, output.getvalue())
 
 class LoaderAgent:
     def load(self, db: Any, bucket: MockS3Bucket, obj: S3Object, rows: list[tuple]) -> dict[str, Any]:

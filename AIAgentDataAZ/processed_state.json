@@ -20,13 +20,8 @@
     "row_count": "2"
   },
   "semiconductor_operations_202606230.csv": {
-    "file_hash": "413889781e158a475a8aa68f64e1d13d3ec77e16bf65359cc373d03589bc24a5",
+    "file_hash": "f203d38f94fe862c003cfb5cf7665a3e815efa6f76cff3112dd55e24d2cb52fe",
     "status": "validation_failed",
-    "issues": "No data rows found in file."
-  },
-  "temp_invalid_test.csv": {
-    "file_hash": "96ab0c99867fd4d308e1d4e46bbdb6d30ca0c5b6ccc70e158f6e7a677ce06229",
-    "status": "validation_failed",
-    "issues": "Invalid metadata field 'execution_time_ms' at line 2: expected integer, got str"
+    "issues": "Type error in line 2 for 'quantity': quantity not an integer: 120.1; Type error in line 3 for 'quantity': quantity not an integer: 95.1"
   }
 }

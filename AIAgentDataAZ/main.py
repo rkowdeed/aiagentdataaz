@@ -65,6 +65,14 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
         if failed_rows:
             cleanser.save_failed_rows(bucket, failed_rows)
             print(f"✓ Saved {len(failed_rows)} invalid row(s) to semiconductor_operations_invalid.csv")
+            cleanser.rewrite_source_with_valid_rows(
+                bucket,
+                obj,
+                validation.get("fieldnames", cleanser.required_headers),
+                validation.get("valid_source_rows", []),
+            )
+            print(f"✓ Removed {len(failed_rows)} invalid row(s) from {obj.key}")
+            current_hash = bucket.compute_hash(obj.key)
 
         if validation["rows"]:
             load_result = loader.load(db, bucket, obj, validation["rows"])
