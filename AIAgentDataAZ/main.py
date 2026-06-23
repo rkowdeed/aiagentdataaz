@@ -35,12 +35,6 @@ LOT126,inspection,EQ-4,2026-06-23,completed,145,99.2,"{""execution_time_ms"":60,
 """
     bucket.write_text("semiconductor_operations_20260623.csv", valid_data)
 
-    invalid_data = """lot_id,operation_step,equipment_id,process_date,status,quantity,yield_pct,metadata
-LOT200,implant,EQ-5,2026-06-24,completed,not_a_number,95.4,"{""execution_time_ms"":105,""process_specification"":{""name"":""implant-B"",""version"":""2.1""},""equipment_conditions"":{""temperature"":{""setpoint"":25,""unit"":""C""},""pressure"":""0.95atm"",""active"":false}}"
-LOT201,etch,EQ-6,2026-06-24,completed,100,,"{""execution_time_ms"":75,""process_specification"":{""name"":""etch-A"",""version"":""1.2""},""equipment_conditions"":{""temperature"":{""setpoint"":20,""unit"":""C""},""pressure"":""1atm"",""active"":"not_boolean"}}"
-"""
-    bucket.write_text("semiconductor_operations_20260624_invalid.csv", invalid_data)
-
 
 def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[str, dict[str, str]]) -> None:
     explorer = ExplorerAgent()
@@ -74,6 +68,10 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
             print(f"✗ Validation failed for {obj.key}:")
             for issue in validation["issues"]:
                 print(f"  - {issue}")
+            # Save failed rows to consolidated invalid CSV
+            if validation.get("failed_rows"):
+                cleanser.save_failed_rows(bucket, validation["failed_rows"])
+                print(f"✓ Saved {len(validation['failed_rows'])} invalid row(s) to semiconductor_operations_invalid.csv")
             state[obj.key] = {
                 "file_hash": current_hash,
                 "status": "validation_failed",

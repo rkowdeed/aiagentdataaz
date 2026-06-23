@@ -64,18 +64,20 @@ class CleanserAgent:
 
         if reader.fieldnames is None:
             issues.append("CSV file has no header row.")
-            return {"ok": False, "issues": issues, "rows": []}
+            return {"ok": False, "issues": issues, "rows": [], "failed_rows": []}
 
         missing = [h for h in self.required_headers if h not in reader.fieldnames]
         if missing:
             issues.append(f"Missing required headers: {', '.join(missing)}")
 
         rows = []
+        failed_rows = []
         row_count = 0
         for line_number, row in enumerate(reader, start=2):
             row_count += 1
             if any(value is None or value == "" for value in row.values()):
                 issues.append(f"Empty value found at line {line_number}.")
+                failed_rows.append(row)
                 continue
             # Robust parsing for quantity and yield_pct with clearer errors.
             quantity_raw = row.get("quantity")
@@ -95,6 +97,7 @@ class CleanserAgent:
                     quantity = int(quantity_raw)
             except (ValueError, TypeError) as exc:
                 issues.append(f"Type error in line {line_number} for 'quantity': {exc}")
+                failed_rows.append(row)
                 continue
 
             try:
@@ -103,6 +106,7 @@ class CleanserAgent:
                 yield_pct = float(yield_raw)
             except (ValueError, TypeError) as exc:
                 issues.append(f"Type error in line {line_number} for 'yield_pct': {exc}")
+                failed_rows.append(row)
                 continue
 
             try:
@@ -111,10 +115,13 @@ class CleanserAgent:
                     raise ValueError("metadata must be a JSON object")
             except (json.JSONDecodeError, ValueError) as exc:
                 issues.append(f"Invalid metadata JSON at line {line_number}: {exc}")
+                failed_rows.append(row)
                 continue
 
-            issues.extend(self._validate_metadata(metadata, line_number, metadata_schema))
-            if any(issue.startswith("Invalid metadata") or issue.startswith("Missing metadata") for issue in issues):
+            metadata_issues = self._validate_metadata(metadata, line_number, metadata_schema)
+            issues.extend(metadata_issues)
+            if metadata_issues:
+                failed_rows.append(row)
                 continue
 
             rows.append(
@@ -133,7 +140,7 @@ class CleanserAgent:
         if row_count == 0:
             issues.append("No data rows found in file.")
 
-        return {"ok": len(issues) == 0, "issues": issues, "rows": rows}
+        return {"ok": len(issues) == 0, "issues": issues, "rows": rows, "failed_rows": failed_rows}
 
     def _validate_metadata(self, metadata: dict[str, Any], line_number: int, schema: dict[str, str]) -> list[str]:
         issues: list[str] = []
@@ -166,6 +173,45 @@ class CleanserAgent:
                 return None, False
             current = current[part]
         return current, True
+
+    def save_failed_rows(self, bucket: MockS3Bucket, failed_rows: list[dict[str, Any]]) -> None:
+        """Append failed rows to the consolidated invalid CSV file."""
+        if not failed_rows:
+            return
+
+        invalid_csv_key = "semiconductor_operations_invalid.csv"
+        
+        # Check if file exists
+        file_exists = True
+        try:
+            existing_content = bucket.read_file(invalid_csv_key)
+        except FileNotFoundError:
+            existing_content = ""
+            file_exists = False
+
+        # Prepare failed rows as CSV strings
+        failed_csv_lines = []
+        for row in failed_rows:
+            values = [str(row.get(h, "")) for h in self.required_headers]
+            # Simple CSV escaping: quote fields that contain commas or quotes
+            escaped_values = []
+            for v in values:
+                if "," in v or '"' in v or "\n" in v:
+                    escaped_values.append(f'"{v.replace(chr(34), chr(34) + chr(34))}"')
+                else:
+                    escaped_values.append(v)
+            failed_csv_lines.append(",".join(escaped_values))
+
+        # Build the final content
+        if not file_exists:
+            # Create new file with header + rows
+            headers = ",".join(self.required_headers)
+            combined_content = headers + "\n" + "\n".join(failed_csv_lines) + "\n"
+        else:
+            # Append rows to existing file
+            combined_content = existing_content.rstrip() + "\n" + "\n".join(failed_csv_lines) + "\n"
+
+        bucket.write_text(invalid_csv_key, combined_content)
 
 class LoaderAgent:
     def load(self, db: Any, bucket: MockS3Bucket, obj: S3Object, rows: list[tuple]) -> dict[str, Any]:

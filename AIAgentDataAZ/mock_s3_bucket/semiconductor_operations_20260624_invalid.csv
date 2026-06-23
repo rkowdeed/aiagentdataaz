@@ -1,2 +1,0 @@
-lot_id,operation_step,equipment_id,process_date,status,quantity,yield_pct,metadata
-LOT200,implant,EQ-5,2026-06-24,completed,95,0,"{""execution_time_ms"":105,""process_specification"":{""name"":""implantB"",""version"":""2.1""},""equipment_conditions"":{""temperature"":{""setpoint"":25,""unit"":""C""},""pressure"":""0.95atm"",""active"":false}}"

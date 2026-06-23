@@ -61,13 +61,13 @@ Example valid metadata JSON:
 ```
 
 The sample valid CSV includes metadata like `execution_time_ms`, `process_specification.name`, `process_specification.version`, and `equipment_conditions.active`.
-Invalid rows are used to test type validation, such as invalid numeric values and malformed boolean metadata.
 
 ## Sample data
 
-The repository seeds two files automatically:
+The repository seeds one valid CSV file automatically:
 - `semiconductor_operations_20260623.csv` (valid)
-- `semiconductor_operations_20260624_invalid.csv` (invalid)
+
+Invalid rows from any source file are automatically saved to `semiconductor_operations_invalid.csv` for later review. Type mismatches and validation failures are recorded separately in processing logs.
 
 ## Notes
 - No AWS dependencies are required.
