@@ -93,6 +93,30 @@ def view_bucket_contents(bucket: MockS3Bucket) -> None:
         print(f"  - {obj.key} ({obj.size} bytes, modified: {obj.last_modified})")
 
 
+def show_file_content(bucket: MockS3Bucket) -> None:
+    objects = bucket.list_objects()
+    if not objects:
+        print("\nNo files in bucket.")
+        return
+
+    print("\nSelect a file to view its contents:")
+    for i, obj in enumerate(objects, 1):
+        print(f"  {i}. {obj.key}")
+
+    try:
+        choice = int(input("Enter file number: ").strip())
+        if 1 <= choice <= len(objects):
+            selected = objects[choice - 1]
+            content = bucket.read_text(selected.key)
+            print(f"\n--- Begin: {selected.key} ---")
+            print(content)
+            print(f"--- End: {selected.key} ---\n")
+        else:
+            print("Invalid selection.")
+    except ValueError:
+        print("Invalid input.")
+
+
 def view_processing_status(state: dict[str, dict[str, str]]) -> None:
     if not state:
         print("\nNo processing history.")
@@ -184,10 +208,11 @@ def display_menu() -> None:
     print("1. Process files")
     print("2. Add file")
     print("3. Update file")
-    print("4. View bucket contents")
-    print("5. View processing status")
-    print("6. Seed test data")
-    print("7. Exit")
+    print("4. Show file content")
+    print("5. View bucket contents")
+    print("6. View processing status")
+    print("7. Seed test data")
+    print("8. Exit")
     print("="*50)
 
 
@@ -212,13 +237,15 @@ def main() -> None:
             elif choice == "3":
                 update_file_menu(bucket)
             elif choice == "4":
-                view_bucket_contents(bucket)
+                show_file_content(bucket)
             elif choice == "5":
-                view_processing_status(state)
+                view_bucket_contents(bucket)
             elif choice == "6":
+                view_processing_status(state)
+            elif choice == "7":
                 seed_synthetic_data(bucket)
                 print("✓ Test data seeded.")
-            elif choice == "7":
+            elif choice == "8":
                 print("Stopping pipeline.")
                 break
             else:
