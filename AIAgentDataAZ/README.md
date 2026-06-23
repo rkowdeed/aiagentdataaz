@@ -25,6 +25,12 @@ Then add or update files in `mock_s3_bucket/`.
 - `file_ingest`: tracks ingest history and validation status.
 - `semiconductor_operation`: stores semiconductor operation rows, including a nested JSON `metadata` field.
 
+### Table relationship
+
+- `file_ingest` is the parent table.
+- `semiconductor_operation` is the child table.
+- `semiconductor_operation.file_ingest_id` references `file_ingest.id`.
+
 ## Metadata schema
 
 The project uses `metadata_field_types.txt` to define expected nested metadata fields and types.
