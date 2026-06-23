@@ -52,7 +52,7 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
         print("No files found in the mock S3 bucket.")
         return
 
-    print(f"Discovered {len(objects)} file(s) in mock S3 bucket.")
+    print(f"\nDiscovered {len(objects)} file(s) in mock S3 bucket.")
     for obj in objects:
         current_hash = bucket.compute_hash(obj.key)
         previous = state.get(obj.key)
@@ -69,9 +69,9 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
                 "status": "loaded",
                 "row_count": str(load_result["row_count"]),
             }
-            print(f"Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
+            print(f"✓ Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
         else:
-            print(f"Validation failed for {obj.key}:")
+            print(f"✗ Validation failed for {obj.key}:")
             for issue in validation["issues"]:
                 print(f"  - {issue}")
             state[obj.key] = {
@@ -83,22 +83,148 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
     save_state(state)
 
 
+def view_bucket_contents(bucket: MockS3Bucket) -> None:
+    objects = bucket.list_objects()
+    if not objects:
+        print("\nNo files in bucket.")
+        return
+    print(f"\nBucket contents ({len(objects)} file(s)):")
+    for obj in objects:
+        print(f"  - {obj.key} ({obj.size} bytes, modified: {obj.last_modified})")
+
+
+def view_processing_status(state: dict[str, dict[str, str]]) -> None:
+    if not state:
+        print("\nNo processing history.")
+        return
+    print(f"\nProcessing status ({len(state)} file(s)):")
+    for key, info in state.items():
+        status = info.get("status", "unknown")
+        print(f"  - {key}: {status}")
+        if status == "loaded":
+            print(f"    Row count: {info.get('row_count')}")
+        elif status == "validation_failed":
+            print(f"    Issues: {info.get('issues')}")
+
+
+def add_file_menu(bucket: MockS3Bucket) -> None:
+    print("\n=== Add File ===")
+    filename = input("Enter filename (without path): ").strip()
+    if not filename:
+        print("Filename cannot be empty.")
+        return
+    
+    print("Enter CSV content (press Enter twice when done):")
+    lines = []
+    empty_count = 0
+    while True:
+        line = input()
+        if line == "":
+            empty_count += 1
+            if empty_count >= 2:
+                break
+            lines.append(line)
+        else:
+            empty_count = 0
+            lines.append(line)
+    
+    content = "\n".join(lines[:-2]) if len(lines) > 1 else ""
+    if content:
+        bucket.write_text(filename, content)
+        print(f"✓ File '{filename}' added to bucket.")
+    else:
+        print("No content provided.")
+
+
+def update_file_menu(bucket: MockS3Bucket) -> None:
+    print("\n=== Update File ===")
+    objects = bucket.list_objects()
+    if not objects:
+        print("No files in bucket.")
+        return
+    
+    print("Available files:")
+    for i, obj in enumerate(objects, 1):
+        print(f"  {i}. {obj.key}")
+    
+    try:
+        choice = int(input("Select file number: ").strip())
+        if 1 <= choice <= len(objects):
+            selected = objects[choice - 1]
+            print(f"Enter new content for '{selected.key}' (press Enter twice when done):")
+            lines = []
+            empty_count = 0
+            while True:
+                line = input()
+                if line == "":
+                    empty_count += 1
+                    if empty_count >= 2:
+                        break
+                    lines.append(line)
+                else:
+                    empty_count = 0
+                    lines.append(line)
+            
+            content = "\n".join(lines[:-2]) if len(lines) > 1 else ""
+            if content:
+                bucket.write_text(selected.key, content)
+                print(f"✓ File '{selected.key}' updated.")
+            else:
+                print("No content provided.")
+        else:
+            print("Invalid selection.")
+    except ValueError:
+        print("Invalid input.")
+
+
+def display_menu() -> None:
+    print("\n" + "="*50)
+    print("SEMICONDUCTOR DATA PIPELINE - INTERACTIVE MODE")
+    print("="*50)
+    print("1. Process files")
+    print("2. Add file")
+    print("3. Update file")
+    print("4. View bucket contents")
+    print("5. View processing status")
+    print("6. Seed test data")
+    print("7. Exit")
+    print("="*50)
+
+
 def main() -> None:
     bucket = MockS3Bucket(str(MOCK_S3_DIR))
     db = SemiconductorDatabase(str(DB_PATH))
     state = load_state()
-    seed_synthetic_data(bucket)
-    print("Mock S3 bucket directory:", bucket.bucket_dir)
-    print("SQLite database path:", db.db_path)
-    print("Starting pipeline. Add or update files in the mock S3 bucket to trigger processing.")
-
+    
+    print(f"Mock S3 bucket directory: {bucket.bucket_dir}")
+    print(f"SQLite database path: {db.db_path}")
+    print("Pipeline ready. Select an option below.")
+    
     try:
         while True:
-            process_bucket(bucket, db, state)
-            print("Waiting for new or updated files...\n")
-            time.sleep(POLL_INTERVAL_SECONDS)
+            display_menu()
+            choice = input("Enter option (1-7): ").strip()
+            
+            if choice == "1":
+                process_bucket(bucket, db, state)
+            elif choice == "2":
+                add_file_menu(bucket)
+            elif choice == "3":
+                update_file_menu(bucket)
+            elif choice == "4":
+                view_bucket_contents(bucket)
+            elif choice == "5":
+                view_processing_status(state)
+            elif choice == "6":
+                seed_synthetic_data(bucket)
+                print("✓ Test data seeded.")
+            elif choice == "7":
+                print("Stopping pipeline.")
+                break
+            else:
+                print("Invalid option. Please select 1-7.")
     except KeyboardInterrupt:
-        print("Stopping pipeline.")
+        print("\nStopping pipeline.")
     finally:
         db.close()
 
