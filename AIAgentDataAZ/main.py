@@ -131,6 +131,35 @@ def view_processing_status(state: dict[str, dict[str, str]]) -> None:
             print(f"    Issues: {info.get('issues')}")
 
 
+def query_database_menu(db: SemiconductorDatabase) -> None:
+    tables = ["file_ingest", "semiconductor_operation"]
+    print("\nSelect a table to query:")
+    for i, table in enumerate(tables, 1):
+        print(f"  {i}. {table}")
+
+    try:
+        choice = int(input("Enter table number: ").strip())
+        if 1 <= choice <= len(tables):
+            table = tables[choice - 1]
+            sql = f"SELECT * FROM {table} LIMIT 50"
+            cursor = db.connection.cursor()
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            if not rows:
+                print(f"\nNo rows found in {table}.")
+                return
+            print(f"\n--- {table} rows (up to 50) ---")
+            for row in rows:
+                print(dict(row))
+            print(f"--- End of {table} ---\n")
+        else:
+            print("Invalid selection.")
+    except ValueError:
+        print("Invalid input.")
+    except Exception as exc:
+        print(f"Error querying database: {exc}")
+
+
 def add_file_menu(bucket: MockS3Bucket) -> None:
     print("\n=== Add File ===")
     filename = input("Enter filename (without path): ").strip()
@@ -211,7 +240,8 @@ def display_menu() -> None:
     print("4. Show file content")
     print("5. View bucket contents")
     print("6. View processing status")
-    print("7. Exit")
+    print("7. Query database tables")
+    print("8. Exit")
     print("="*50)
 
 
@@ -227,7 +257,7 @@ def main() -> None:
     try:
         while True:
             display_menu()
-            choice = input("Enter option (1-7): ").strip()
+            choice = input("Enter option (1-8): ").strip()
 
             if choice == "1":
                 process_bucket(bucket, db, state)
@@ -242,10 +272,12 @@ def main() -> None:
             elif choice == "6":
                 view_processing_status(state)
             elif choice == "7":
+                query_database_menu(db)
+            elif choice == "8":
                 print("Stopping pipeline.")
                 break
             else:
-                print("Invalid option. Please select 1-7.")
+                print("Invalid option. Please select 1-8.")
     except KeyboardInterrupt:
         print("\nStopping pipeline.")
     finally:
