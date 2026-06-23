@@ -20,8 +20,13 @@
     "row_count": "2"
   },
   "semiconductor_operations_202606230.csv": {
-    "file_hash": "f203d38f94fe862c003cfb5cf7665a3e815efa6f76cff3112dd55e24d2cb52fe",
-    "status": "validation_failed",
-    "issues": "Type error in line 2 for 'quantity': quantity not an integer: 120.1; Type error in line 3 for 'quantity': quantity not an integer: 95.1"
+    "file_hash": "a1f835bf5b8f2c8c19545b9a661601ade0718f5ac8cacd4b02bb632df5162bbc",
+    "status": "loaded_with_validation_issues",
+    "row_count": "1"
+  },
+  "semiconductor_operations_invalid.csv": {
+    "file_hash": "4661c89a61f78311e46b8b38870be937fec318ac60406a79a1e944acf32d6b1d",
+    "status": "loaded",
+    "row_count": "2"
   }
 }

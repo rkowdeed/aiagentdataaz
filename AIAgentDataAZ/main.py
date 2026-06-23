@@ -49,9 +49,6 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
 
     print(f"\nDiscovered {len(objects)} file(s) in mock S3 bucket.")
     for obj in objects:
-        if obj.key == CleanserAgent.INVALID_CSV_KEY:
-            continue
-
         current_hash = bucket.compute_hash(obj.key)
         previous = state.get(obj.key)
         if previous and previous.get("file_hash") == current_hash:
@@ -60,22 +57,36 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
 
         print(f"Processing new or updated object: {obj.key}")
         validation = cleanser.validate(bucket, obj)
+        is_invalid_queue = obj.key == CleanserAgent.INVALID_CSV_KEY
 
         failed_rows = validation.get("failed_rows", [])
-        if failed_rows:
+        if failed_rows and not is_invalid_queue:
             cleanser.save_failed_rows(bucket, failed_rows)
             print(f"✓ Saved {len(failed_rows)} invalid row(s) to semiconductor_operations_invalid.csv")
-            cleanser.rewrite_source_with_valid_rows(
-                bucket,
-                obj,
-                validation.get("fieldnames", cleanser.required_headers),
-                validation.get("valid_source_rows", []),
-            )
-            print(f"✓ Removed {len(failed_rows)} invalid row(s) from {obj.key}")
-            current_hash = bucket.compute_hash(obj.key)
 
         if validation["rows"]:
             load_result = loader.load(db, bucket, obj, validation["rows"])
+
+            if is_invalid_queue:
+                # For invalid queue file, keep only rows still failing validation.
+                cleanser.rewrite_source_rows(
+                    bucket,
+                    obj,
+                    validation.get("fieldnames", cleanser.required_headers),
+                    failed_rows,
+                )
+                print(f"✓ Removed {load_result['row_count']} corrected row(s) from {obj.key}")
+            else:
+                # For normal source files, loaded rows are consumed from queue.
+                cleanser.rewrite_source_rows(
+                    bucket,
+                    obj,
+                    validation.get("fieldnames", cleanser.required_headers),
+                    [],
+                )
+                print(f"✓ Cleared {load_result['row_count']} loaded row(s) from {obj.key}")
+
+            current_hash = bucket.compute_hash(obj.key)
             state[obj.key] = {
                 "file_hash": current_hash,
                 "status": "loaded" if not validation["issues"] else "loaded_with_validation_issues",
@@ -90,6 +101,17 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
             print(f"✗ Validation failed for {obj.key}:")
             for issue in validation["issues"]:
                 print(f"  - {issue}")
+
+            if is_invalid_queue:
+                # Keep failed rows in invalid queue file when no corrected rows exist.
+                cleanser.rewrite_source_rows(
+                    bucket,
+                    obj,
+                    validation.get("fieldnames", cleanser.required_headers),
+                    failed_rows,
+                )
+                current_hash = bucket.compute_hash(obj.key)
+
             state[obj.key] = {
                 "file_hash": current_hash,
                 "status": "validation_failed",

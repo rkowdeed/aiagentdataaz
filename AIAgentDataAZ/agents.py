@@ -220,19 +220,19 @@ class CleanserAgent:
             prefix += "\n"
         bucket.write_text(self.INVALID_CSV_KEY, prefix + append_buffer.getvalue())
 
-    def rewrite_source_with_valid_rows(
+    def rewrite_source_rows(
         self,
         bucket: MockS3Bucket,
         obj: S3Object,
         fieldnames: list[str],
-        valid_rows: list[dict[str, Any]],
+        rows_to_keep: list[dict[str, Any]],
     ) -> None:
-        """Rewrite a source CSV to keep only valid rows after invalid rows are moved out."""
+        """Rewrite a source CSV to keep only the provided rows."""
         write_fields = [field for field in fieldnames if field]
         output = io.StringIO()
         writer = csv.DictWriter(output, fieldnames=write_fields, lineterminator="\n")
         writer.writeheader()
-        for row in valid_rows:
+        for row in rows_to_keep:
             writer.writerow({field: row.get(field, "") for field in write_fields})
         bucket.write_text(obj.key, output.getvalue())
 
