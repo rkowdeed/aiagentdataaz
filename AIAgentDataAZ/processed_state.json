@@ -23,5 +23,10 @@
     "file_hash": "413889781e158a475a8aa68f64e1d13d3ec77e16bf65359cc373d03589bc24a5",
     "status": "validation_failed",
     "issues": "No data rows found in file."
+  },
+  "temp_invalid_test.csv": {
+    "file_hash": "96ab0c99867fd4d308e1d4e46bbdb6d30ca0c5b6ccc70e158f6e7a677ce06229",
+    "status": "validation_failed",
+    "issues": "Invalid metadata field 'execution_time_ms' at line 2: expected integer, got str"
   }
 }

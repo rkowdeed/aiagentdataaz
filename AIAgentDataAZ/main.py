@@ -40,6 +40,7 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
     explorer = ExplorerAgent()
     cleanser = CleanserAgent()
     loader = LoaderAgent()
+    cleanser.ensure_invalid_rows_file(bucket)
 
     objects = explorer.discover(bucket)
     if not objects:
@@ -48,6 +49,9 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
 
     print(f"\nDiscovered {len(objects)} file(s) in mock S3 bucket.")
     for obj in objects:
+        if obj.key == CleanserAgent.INVALID_CSV_KEY:
+            continue
+
         current_hash = bucket.compute_hash(obj.key)
         previous = state.get(obj.key)
         if previous and previous.get("file_hash") == current_hash:
@@ -56,22 +60,28 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
 
         print(f"Processing new or updated object: {obj.key}")
         validation = cleanser.validate(bucket, obj)
-        if validation["ok"]:
+
+        failed_rows = validation.get("failed_rows", [])
+        if failed_rows:
+            cleanser.save_failed_rows(bucket, failed_rows)
+            print(f"✓ Saved {len(failed_rows)} invalid row(s) to semiconductor_operations_invalid.csv")
+
+        if validation["rows"]:
             load_result = loader.load(db, bucket, obj, validation["rows"])
             state[obj.key] = {
                 "file_hash": current_hash,
-                "status": "loaded",
+                "status": "loaded" if not validation["issues"] else "loaded_with_validation_issues",
                 "row_count": str(load_result["row_count"]),
             }
             print(f"✓ Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
+            if validation["issues"]:
+                print(f"⚠ Validation issues found for {obj.key}:")
+                for issue in validation["issues"]:
+                    print(f"  - {issue}")
         else:
             print(f"✗ Validation failed for {obj.key}:")
             for issue in validation["issues"]:
                 print(f"  - {issue}")
-            # Save failed rows to consolidated invalid CSV
-            if validation.get("failed_rows"):
-                cleanser.save_failed_rows(bucket, validation["failed_rows"])
-                print(f"✓ Saved {len(validation['failed_rows'])} invalid row(s) to semiconductor_operations_invalid.csv")
             state[obj.key] = {
                 "file_hash": current_hash,
                 "status": "validation_failed",
@@ -174,12 +184,11 @@ def add_file_menu(bucket: MockS3Bucket) -> None:
             empty_count += 1
             if empty_count >= 2:
                 break
-            lines.append(line)
         else:
             empty_count = 0
             lines.append(line)
-    
-    content = "\n".join(lines[:-2]) if len(lines) > 1 else ""
+
+    content = "\n".join(lines)
     if content:
         bucket.write_text(filename, content)
         print(f"✓ File '{filename}' added to bucket.")
@@ -211,12 +220,11 @@ def update_file_menu(bucket: MockS3Bucket) -> None:
                     empty_count += 1
                     if empty_count >= 2:
                         break
-                    lines.append(line)
                 else:
                     empty_count = 0
                     lines.append(line)
-            
-            content = "\n".join(lines[:-2]) if len(lines) > 1 else ""
+
+            content = "\n".join(lines)
             if content:
                 bucket.write_text(selected.key, content)
                 print(f"✓ File '{selected.key}' updated.")

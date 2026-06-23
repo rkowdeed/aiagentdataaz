@@ -1,11 +1,8 @@
 import csv
+import io
 import json
 from pathlib import Path
 from typing import Any
-import csv
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 from mock_s3 import MockS3Bucket, S3Object
 
@@ -24,6 +21,8 @@ class ExplorerAgent:
         ]
 
 class CleanserAgent:
+    INVALID_CSV_KEY = "semiconductor_operations_invalid.csv"
+
     required_headers = [
         "lot_id",
         "operation_step",
@@ -178,44 +177,38 @@ class CleanserAgent:
             current = current[part]
         return current, True
 
+    def ensure_invalid_rows_file(self, bucket: MockS3Bucket) -> None:
+        """Ensure the consolidated invalid CSV file exists with header."""
+        try:
+            existing_content = bucket.read_file(self.INVALID_CSV_KEY)
+            if existing_content.strip():
+                return
+        except FileNotFoundError:
+            pass
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=self.required_headers, lineterminator="\n")
+        writer.writeheader()
+        bucket.write_text(self.INVALID_CSV_KEY, output.getvalue())
+
     def save_failed_rows(self, bucket: MockS3Bucket, failed_rows: list[dict[str, Any]]) -> None:
         """Append failed rows to the consolidated invalid CSV file."""
         if not failed_rows:
             return
 
-        invalid_csv_key = "semiconductor_operations_invalid.csv"
-        
-        # Check if file exists
-        file_exists = True
-        try:
-            existing_content = bucket.read_file(invalid_csv_key)
-        except FileNotFoundError:
-            existing_content = ""
-            file_exists = False
+        self.ensure_invalid_rows_file(bucket)
+        existing_content = bucket.read_file(self.INVALID_CSV_KEY)
 
-        # Prepare failed rows as CSV strings
-        failed_csv_lines = []
+        append_buffer = io.StringIO()
+        writer = csv.DictWriter(append_buffer, fieldnames=self.required_headers, lineterminator="\n")
         for row in failed_rows:
-            values = [str(row.get(h, "")) for h in self.required_headers]
-            # Simple CSV escaping: quote fields that contain commas or quotes
-            escaped_values = []
-            for v in values:
-                if "," in v or '"' in v or "\n" in v:
-                    escaped_values.append(f'"{v.replace(chr(34), chr(34) + chr(34))}"')
-                else:
-                    escaped_values.append(v)
-            failed_csv_lines.append(",".join(escaped_values))
+            normalized = {header: row.get(header, "") for header in self.required_headers}
+            writer.writerow(normalized)
 
-        # Build the final content
-        if not file_exists:
-            # Create new file with header + rows
-            headers = ",".join(self.required_headers)
-            combined_content = headers + "\n" + "\n".join(failed_csv_lines) + "\n"
-        else:
-            # Append rows to existing file
-            combined_content = existing_content.rstrip() + "\n" + "\n".join(failed_csv_lines) + "\n"
-
-        bucket.write_text(invalid_csv_key, combined_content)
+        prefix = existing_content
+        if prefix and not prefix.endswith("\n"):
+            prefix += "\n"
+        bucket.write_text(self.INVALID_CSV_KEY, prefix + append_buffer.getvalue())
 
 class LoaderAgent:
     def load(self, db: Any, bucket: MockS3Bucket, obj: S3Object, rows: list[tuple]) -> dict[str, Any]:
