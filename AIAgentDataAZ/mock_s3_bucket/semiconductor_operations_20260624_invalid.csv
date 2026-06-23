@@ -1,3 +1,2 @@
 lot_id,operation_step,equipment_id,process_date,status,quantity,yield_pct,metadata
-LOT200,implant,EQ-5,2026-06-24,completed,not_a_number,95.4,"{""execution_time_ms"":105,""process_specification"":{""name"":""implant-B"",""version"":""2.1""},""equipment_conditions"":{""temperature"":{""setpoint"":25,""unit"":""C""},""pressure"":""0.95atm"",""active"":false}}"
-LOT201,etch,EQ-6,2026-06-24,completed,100,,"{""execution_time_ms"":75,""process_specification"":{""name"":""etch-A"",""version"":""1.2""},""equipment_conditions"":{""temperature"":{""setpoint"":20,""unit"":""C""},""pressure"":""1atm"",""active"":"not_boolean"}}"
+LOT200,implant,EQ-5,2026-06-24,completed,95,0,"{""execution_time_ms"":105,""process_specification"":{""name"":""implantB"",""version"":""2.1""},""equipment_conditions"":{""temperature"":{""setpoint"":25,""unit"":""C""},""pressure"":""0.95atm"",""active"":false}}"

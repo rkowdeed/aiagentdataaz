@@ -1,13 +1,13 @@
 {
   "semiconductor_operations_20260623.csv": {
-    "file_hash": "5aa2ea6cdaa7a314db9890c339e2d551a8757c42f737420dcf05332baf47fafd",
+    "file_hash": "b9916278bc872ad6ee7a0b86f16f6c743e1a0171a83274143c993b13c5c8b03a",
     "status": "loaded",
-    "row_count": "4"
+    "row_count": "2"
   },
   "semiconductor_operations_20260624_invalid.csv": {
-    "file_hash": "9c9f52c440278dbe6edeab5803631be87bd9b8a9e0f4b906942eb04f2c092501",
-    "status": "validation_failed",
-    "issues": "Type error in line 2: invalid literal for int() with base 10: 'not_a_number'; Empty value found at line 3."
+    "file_hash": "bf03b1aa27594f27c3f77854e4fd943846f2a0b9eb100970bfb29d46832bd622",
+    "status": "loaded",
+    "row_count": "1"
   },
   "semiconductor_operations_20260623 - Copy.csv": {
     "file_hash": "5aa2ea6cdaa7a314db9890c339e2d551a8757c42f737420dcf05332baf47fafd",
@@ -18,5 +18,10 @@
     "file_hash": "6dd1f6a7298bb5f8ecf0c027839f33910c4eef5791fd1ae946bd6bd3c1c3f732",
     "status": "loaded",
     "row_count": "3"
+  },
+  "semiconductor_operations_202606232.csv": {
+    "file_hash": "2ec4bf2f646b310765cb1e43c401a1a7f3fb660c2695a61005c32e76319fb0c8",
+    "status": "loaded",
+    "row_count": "2"
   }
 }
