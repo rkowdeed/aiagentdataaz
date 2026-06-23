@@ -211,8 +211,7 @@ def display_menu() -> None:
     print("4. Show file content")
     print("5. View bucket contents")
     print("6. View processing status")
-    print("7. Seed test data")
-    print("8. Exit")
+    print("7. Exit")
     print("="*50)
 
 
@@ -228,8 +227,8 @@ def main() -> None:
     try:
         while True:
             display_menu()
-            choice = input("Enter option (1-8): ").strip()
-            
+            choice = input("Enter option (1-7): ").strip()
+
             if choice == "1":
                 process_bucket(bucket, db, state)
             elif choice == "2":
@@ -243,9 +242,6 @@ def main() -> None:
             elif choice == "6":
                 view_processing_status(state)
             elif choice == "7":
-                seed_synthetic_data(bucket)
-                print("✓ Test data seeded.")
-            elif choice == "8":
                 print("Stopping pipeline.")
                 break
             else:
