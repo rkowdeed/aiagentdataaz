@@ -49,6 +49,11 @@ class MockS3Bucket:
         stat = os.stat(destination)
         return S3Object(key=key, path=destination, last_modified=stat.st_mtime, size=stat.st_size)
 
+    def delete_object(self, key: str) -> None:
+        path = self._object_path(key)
+        if os.path.exists(path):
+            os.remove(path)
+
     def compute_hash(self, key: str) -> str:
         path = self._object_path(key)
         hasher = hashlib.sha256()

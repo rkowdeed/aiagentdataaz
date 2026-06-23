@@ -66,37 +66,44 @@ def process_bucket(bucket: MockS3Bucket, db: SemiconductorDatabase, state: dict[
 
         if validation["rows"]:
             load_result = loader.load(db, bucket, obj, validation["rows"])
+            all_rows_loaded_successfully = (not failed_rows) and (not validation["issues"])
 
-            if is_invalid_queue:
-                # For invalid queue file, keep only rows still failing validation.
-                cleanser.rewrite_source_rows(
-                    bucket,
-                    obj,
-                    validation.get("fieldnames", cleanser.required_headers),
-                    failed_rows,
-                )
-                print(f"✓ Removed {load_result['row_count']} corrected row(s) from {obj.key}")
+            if all_rows_loaded_successfully:
+                bucket.delete_object(obj.key)
+                state.pop(obj.key, None)
+                print(f"✓ Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
+                print(f"✓ Deleted {obj.key} (all rows loaded successfully)")
             else:
-                # For normal source files, loaded rows are consumed from queue.
-                cleanser.rewrite_source_rows(
-                    bucket,
-                    obj,
-                    validation.get("fieldnames", cleanser.required_headers),
-                    [],
-                )
-                print(f"✓ Cleared {load_result['row_count']} loaded row(s) from {obj.key}")
+                if is_invalid_queue:
+                    # For invalid queue file, keep only rows still failing validation.
+                    cleanser.rewrite_source_rows(
+                        bucket,
+                        obj,
+                        validation.get("fieldnames", cleanser.required_headers),
+                        failed_rows,
+                    )
+                    print(f"✓ Removed {load_result['row_count']} corrected row(s) from {obj.key}")
+                else:
+                    # For normal source files, loaded rows are consumed from queue.
+                    cleanser.rewrite_source_rows(
+                        bucket,
+                        obj,
+                        validation.get("fieldnames", cleanser.required_headers),
+                        [],
+                    )
+                    print(f"✓ Cleared {load_result['row_count']} loaded row(s) from {obj.key}")
 
-            current_hash = bucket.compute_hash(obj.key)
-            state[obj.key] = {
-                "file_hash": current_hash,
-                "status": "loaded" if not validation["issues"] else "loaded_with_validation_issues",
-                "row_count": str(load_result["row_count"]),
-            }
-            print(f"✓ Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
-            if validation["issues"]:
-                print(f"⚠ Validation issues found for {obj.key}:")
-                for issue in validation["issues"]:
-                    print(f"  - {issue}")
+                current_hash = bucket.compute_hash(obj.key)
+                state[obj.key] = {
+                    "file_hash": current_hash,
+                    "status": "loaded" if not validation["issues"] else "loaded_with_validation_issues",
+                    "row_count": str(load_result["row_count"]),
+                }
+                print(f"✓ Loaded {load_result['row_count']} row(s) from {obj.key} into the database.")
+                if validation["issues"]:
+                    print(f"⚠ Validation issues found for {obj.key}:")
+                    for issue in validation["issues"]:
+                        print(f"  - {issue}")
         else:
             print(f"✗ Validation failed for {obj.key}:")
             for issue in validation["issues"]:
