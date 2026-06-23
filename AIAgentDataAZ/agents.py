@@ -77,11 +77,32 @@ class CleanserAgent:
             if any(value is None or value == "" for value in row.values()):
                 issues.append(f"Empty value found at line {line_number}.")
                 continue
+            # Robust parsing for quantity and yield_pct with clearer errors.
+            quantity_raw = row.get("quantity")
+            yield_raw = row.get("yield_pct")
+
             try:
-                quantity = int(row["quantity"])
-                yield_pct = float(row["yield_pct"])
-            except ValueError as exc:
-                issues.append(f"Type error in line {line_number}: {exc}")
+                if quantity_raw is None:
+                    raise ValueError("quantity is missing")
+                # Allow numeric strings like "95.0" but require integer value.
+                if isinstance(quantity_raw, str) and "." in quantity_raw:
+                    qf = float(quantity_raw)
+                    if qf.is_integer():
+                        quantity = int(qf)
+                    else:
+                        raise ValueError(f"quantity not an integer: {quantity_raw}")
+                else:
+                    quantity = int(quantity_raw)
+            except (ValueError, TypeError) as exc:
+                issues.append(f"Type error in line {line_number} for 'quantity': {exc}")
+                continue
+
+            try:
+                if yield_raw is None or yield_raw == "":
+                    raise ValueError("yield_pct is missing or empty")
+                yield_pct = float(yield_raw)
+            except (ValueError, TypeError) as exc:
+                issues.append(f"Type error in line {line_number} for 'yield_pct': {exc}")
                 continue
 
             try:
